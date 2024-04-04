@@ -36,7 +36,22 @@ def handle_pull_request(pull_request):
             pull_request.create_issue_comment(f"File deleted. Pull request put on hold. @{MENTION_USER} please review.")
             return
 
+def check_for_new_pull_requests():
+    # Authenticate with GitHub using the bot token
+    github = Github(GITHUB_TOKEN)
+
+    # Get the repository
+    repo = github.get_repo(REPO_NAME)
+
+    # Check for new pull requests
+    for pr in repo.get_pulls(state='open'):
+        # Newly opened pull request, handle it
+        handle_pull_request(pr)
+
 def main():
+    # Check for new pull requests upon startup
+    check_for_new_pull_requests()
+
     # Authenticate with GitHub using the bot token
     github = Github(GITHUB_TOKEN)
 
