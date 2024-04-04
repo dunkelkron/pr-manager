@@ -1,6 +1,7 @@
 import os
 from github import Github
 from dotenv import load_dotenv
+import time
 
 # Load environment variables from .env file
 load_dotenv()
@@ -43,7 +44,7 @@ def handle_pull_request(pull_request):
             pull_request.create_issue_comment(f"File deleted. Pull request put on hold. @{MENTION_USER} please review.")
             return
 
-def check_for_new_pull_requests():
+def check_for_pull_requests():
     print("Checking for new pull requests...")
     # Authenticate with GitHub using the bot token
     github = Github(GITHUB_TOKEN)
@@ -58,22 +59,12 @@ def check_for_new_pull_requests():
 
 def main():
     print("Bot script is running...")
-    # Check for new pull requests upon startup
-    check_for_new_pull_requests()
-
-    print("Listening for pull request events...")
-    # Authenticate with GitHub using the bot token
-    github = Github(GITHUB_TOKEN)
-
-    # Get the repository
-    repo = github.get_repo(REPO_NAME)
-
-    # Listen for pull request events
-    for pr in repo.get_pulls(state='open'):
-        # Check if the pull request is newly opened
-        if pr.created_at == pr.updated_at:
-            # Newly opened pull request, handle it
-            handle_pull_request(pr)
+    while True:
+        # Check for new pull requests
+        check_for_pull_requests()
+        
+        # Wait for 60 seconds before checking again
+        time.sleep(60)
 
 if __name__ == "__main__":
     main()
