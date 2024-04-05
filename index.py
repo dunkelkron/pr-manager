@@ -13,36 +13,56 @@ MENTION_USER = os.environ.get('MENTION_USER')
 
 def handle_pull_request(pull_request):
     print("Handling pull request...")
+    files_added = []
+    files_modified = []
+    files_removed = []
+    
+    # Check all files in the pull request
     for file in pull_request.get_files():
         print(f"Processing file: {file.filename}")
         # Check file status
         if file.status == 'added':
-            print("New file added. Pull request accepted.")
-            # New file, accept pull request
-            pull_request.create_issue_comment("New file added. Pull request accepted.")
-            pull_request.merge()
-            return
+            files_added.append(file.filename)
         elif file.status == 'modified':
-            print("Modified file detected.")
-            # Modified file, check original author
-            commits = file.get_commits()
-            original_author = commits[0].author.login if commits else None
-            if original_author == pull_request.user.login:
-                print("File edited by original author. Pull request accepted.")
-                # Original author, accept pull request
-                pull_request.create_issue_comment("File edited by original author. Pull request accepted.")
-                pull_request.merge()
-                return
-            else:
-                print("File edited by different user. More info needed.")
-                # Not original author, request more info
-                pull_request.create_issue_comment("File edited by different user. More info needed.")
-                return
+            files_modified.append(file.filename)
         elif file.status == 'removed':
-            print("File deleted. Pull request put on hold.")
-            # Deleted file, put on hold and mention user
-            pull_request.create_issue_comment(f"File deleted. Pull request put on hold. @{MENTION_USER} please review.")
-            return
+            files_removed.append(file.filename)
+
+    # Handle different scenarios
+    if len(files_added) > 1:
+        print("Multiple files added. Please add files one at a time and create separate pull requests.")
+        pull_request.create_issue_comment("Multiple files added. Please add files one at a time and create separate pull requests.")
+        pull_request.edit(state='closed')
+    elif len(files_modified) > 1:
+        print("Multiple files modified. Please modify files one at a time and create separate pull requests.")
+        pull_request.create_issue_comment("Multiple files modified. Please modify files one at a time and create separate pull requests.")
+        pull_request.edit(state='closed')
+    elif len(files_removed) > 0:
+        print("File(s) deleted. Pull request closed.")
+        # Close the pull request
+        pull_request.edit(state='closed')
+        # Create a new issue to inform the user about the deletion
+        deletion_message = f"File(s) deleted in pull request #{pull_request.number}. Please review."
+        base_repo = pull_request.base.repo
+        base_repo.create_issue(title="File Deletion", body=deletion_message, assignee=MENTION_USER)
+    else:
+        # Proceed with normal handling
+        original_author = pull_request.user.login
+        for filename in files_added + files_modified:
+            print(f"Modified or added file '{filename}' detected. Edited by {original_author}.")
+            try:
+                # Check if the file was modified by the original author
+                if filename in files_added or (filename in files_modified and original_author == pull_request.head.user.login):
+                    print("Original author modifying. Pull request accepted.")
+                    pull_request.create_issue_comment("Original author modifying. Pull request accepted.")
+                    pull_request.merge()
+                else:
+                    print("Not original author modifying. Closing pull request.")
+                    pull_request.create_issue_comment("Not original author modifying. Closing pull request.")
+                    pull_request.edit(state='closed')
+                    break
+            except Exception as e:
+                print(f"Error handling pull request: {e}")
 
 def check_for_pull_requests():
     print("Checking for new pull requests...")
