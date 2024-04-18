@@ -15,17 +15,28 @@ def get_original_author(file_path, repo):
     try:
         # Retrieve commit history for the file
         commits = repo.get_commits(path=file_path)
-        alpha = [commit.commit.author.name for commit in commits]
-        if not alpha:
+        if not commits:
             print(f"No commits found for file '{file_path}'.")
             return None
-        else:
-            original_author = alpha[-1]
-            return original_author
+
+        # Find the most recent commit that affects the file
+        latest_commit = None
+        for commit in commits:
+            if file_path in [f.filename for f in commit.files]:
+                latest_commit = commit
+                break
+
+        if latest_commit is None:
+            print(f"No relevant commits found for file '{file_path}'.")
+            return None
+
+        # Get the author of the latest commit
+        original_author = latest_commit.commit.author.name
+        return original_author
     except Exception as e:
         print(f"Error retrieving commit history: {e}")
-        print("Authors:", alpha)
         return None
+
 
 
 def handle_pull_request(pull_request):
